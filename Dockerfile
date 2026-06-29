@@ -9,7 +9,7 @@ RUN apt-get update \
         libzip-dev \
         nodejs \
         npm \
-    && docker-php-ext-install intl pdo_pgsql zip \
+    && docker-php-ext-install intl pdo_mysql pdo_pgsql zip \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
