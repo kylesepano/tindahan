@@ -21,12 +21,14 @@ return new class extends Migration
         }
 
         if (DB::table('product_variant_images')->count() === 0) {
-            DB::statement('
+            $primaryValue = DB::getDriverName() === 'pgsql' ? 'true' : '1';
+
+            DB::statement("
                 INSERT INTO product_variant_images (product_variant_id, url, is_primary, position, created_at, updated_at)
-                SELECT id, image_url, 1, 1, NOW(), NOW()
+                SELECT id, image_url, {$primaryValue}, 1, NOW(), NOW()
                 FROM product_variants
                 WHERE image_url IS NOT NULL
-            ');
+            ");
         }
     }
 
