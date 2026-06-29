@@ -23,7 +23,9 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN git config --global http.version HTTP/1.1 \
+RUN echo "Tindahan Dockerfile build marker: composer-prefer-source-2026-06-29" \
+    && git config --global http.version HTTP/1.1 \
+    && composer config --global preferred-install source \
     && composer clear-cache \
     && composer install --no-dev --prefer-source --no-progress --no-interaction --optimize-autoloader \
     && npm ci \
