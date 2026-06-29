@@ -9,7 +9,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE product_images MODIFY url TEXT NOT NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE product_images MODIFY url TEXT NOT NULL');
+        }
 
         Schema::create('product_price_histories', function (Blueprint $table) {
             $table->id();
@@ -25,6 +27,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('product_price_histories');
-        DB::statement('ALTER TABLE product_images MODIFY url VARCHAR(255) NOT NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE product_images MODIFY url VARCHAR(255) NOT NULL');
+        }
     }
 };

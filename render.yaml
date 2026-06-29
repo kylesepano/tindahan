@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: tindahan
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_NAME
+        value: Tindahan
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: tindahan-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: tindahan-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: tindahan-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: tindahan-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: tindahan-db
+          property: password
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: PAYMONGO_PUBLIC_KEY
+        sync: false
+      - key: PAYMONGO_SECRET_KEY
+        sync: false
+      - key: PAYMONGO_WEBHOOK_SECRET
+        sync: false
+      - key: PAYMONGO_MERCHANT_NAME
+        value: Tindahan
+      - key: PAYMONGO_FORCE_CHECKOUT_AMOUNT
+        value: true
+      - key: PAYMONGO_CHECKOUT_AMOUNT
+        value: 1.00
+
+databases:
+  - name: tindahan-db
+    plan: free
+    databaseName: tindahan
+    user: tindahan
