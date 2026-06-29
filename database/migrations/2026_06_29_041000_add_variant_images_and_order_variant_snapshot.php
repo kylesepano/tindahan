@@ -9,14 +9,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('product_variants', function (Blueprint $table) {
-            $table->text('image_url')->nullable()->after('value');
-        });
+        if (! Schema::hasColumn('product_variants', 'image_url')) {
+            Schema::table('product_variants', function (Blueprint $table) {
+                $table->text('image_url')->nullable()->after('value');
+            });
+        }
 
-        Schema::table('order_items', function (Blueprint $table) {
-            $table->foreignId('product_variant_id')->nullable()->after('product_id')->constrained('product_variants')->nullOnDelete();
-            $table->string('variant_name')->nullable()->after('product_name');
-        });
+        if (! Schema::hasColumn('order_items', 'product_variant_id')) {
+            Schema::table('order_items', function (Blueprint $table) {
+                $table->foreignId('product_variant_id')->nullable()->after('product_id')->constrained('product_variants')->nullOnDelete();
+            });
+        }
+
+        if (! Schema::hasColumn('order_items', 'variant_name')) {
+            Schema::table('order_items', function (Blueprint $table) {
+                $table->string('variant_name')->nullable()->after('product_name');
+            });
+        }
 
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('
@@ -61,13 +70,22 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('order_items', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('product_variant_id');
-            $table->dropColumn('variant_name');
-        });
+        if (Schema::hasColumn('order_items', 'product_variant_id')) {
+            Schema::table('order_items', function (Blueprint $table) {
+                $table->dropConstrainedForeignId('product_variant_id');
+            });
+        }
 
-        Schema::table('product_variants', function (Blueprint $table) {
-            $table->dropColumn('image_url');
-        });
+        if (Schema::hasColumn('order_items', 'variant_name')) {
+            Schema::table('order_items', function (Blueprint $table) {
+                $table->dropColumn('variant_name');
+            });
+        }
+
+        if (Schema::hasColumn('product_variants', 'image_url')) {
+            Schema::table('product_variants', function (Blueprint $table) {
+                $table->dropColumn('image_url');
+            });
+        }
     }
 };
