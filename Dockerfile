@@ -13,13 +13,18 @@ RUN apt-get update \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_NO_INTERACTION=1
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader \
+RUN git config --global http.version HTTP/1.1 \
+    && composer clear-cache \
+    && composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader \
     && npm ci \
     && npm run build \
     && npm prune --omit=dev \
