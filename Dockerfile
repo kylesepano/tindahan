@@ -25,7 +25,7 @@ COPY . .
 
 RUN git config --global http.version HTTP/1.1 \
     && composer clear-cache \
-    && composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader \
+    && composer install --no-dev --prefer-source --no-progress --no-interaction --optimize-autoloader \
     && npm ci \
     && npm run build \
     && npm prune --omit=dev \
