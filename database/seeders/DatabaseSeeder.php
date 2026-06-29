@@ -106,15 +106,17 @@ class DatabaseSeeder extends Seeder
             'Beauty' => ['Hydrating Skin Serum', 'Daily Glow Moisturizer', 'Matte Lip Color Set', 'Botanical Face Cleanser', 'Soft Finish Makeup Kit', 'Nourishing Hair Oil'],
         ];
 
-        $categories = collect(array_keys($categoryImages))->map(fn ($name) => Category::create([
-            'name' => $name,
-            'slug' => Str::slug($name),
-            'description' => "Curated {$name} essentials for everyday shopping.",
-            'image' => $categoryImages[$name],
-        ]));
+        $categories = collect(array_keys($categoryImages))->map(fn ($name) => Category::updateOrCreate(
+            ['slug' => Str::slug($name)],
+            [
+                'name' => $name,
+                'description' => "Curated {$name} essentials for everyday shopping.",
+                'image' => $categoryImages[$name],
+            ]
+        ));
 
         $brands = collect(['AeroWear', 'Northline', 'PulseLab', 'Kinetic', 'Casa Nova', 'BrightSkin'])
-            ->map(fn ($name) => Brand::create(['name' => $name, 'slug' => Str::slug($name)]));
+            ->map(fn ($name) => Brand::updateOrCreate(['slug' => Str::slug($name)], ['name' => $name]));
 
         for ($i = 1; $i <= 60; $i++) {
             $price = fake()->numberBetween(650, 18500);
@@ -174,23 +176,27 @@ class DatabaseSeeder extends Seeder
         }
 
         foreach (['WELCOME10' => 10, 'PAYDAY150' => 150, 'FLASH20' => 20] as $code => $value) {
-            Coupon::create([
-                'code' => $code,
-                'type' => Str::contains($code, '150') ? 'fixed' : 'percentage',
-                'value' => $value,
-                'minimum_spend' => 1000,
-                'usage_limit' => 500,
-                'expires_at' => now()->addMonths(2),
-            ]);
+            Coupon::updateOrCreate(
+                ['code' => $code],
+                [
+                    'type' => Str::contains($code, '150') ? 'fixed' : 'percentage',
+                    'value' => $value,
+                    'minimum_spend' => 1000,
+                    'usage_limit' => 500,
+                    'expires_at' => now()->addMonths(2),
+                ]
+            );
         }
 
-        Banner::create([
-            'title' => 'Midyear Picks Are Live',
-            'subtitle' => 'Fresh drops, GCash-ready checkout, and same-week delivery.',
-            'image' => 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80',
-            'cta_label' => 'Shop deals',
-            'cta_url' => '/products',
-        ]);
+        Banner::updateOrCreate(
+            ['title' => 'Midyear Picks Are Live'],
+            [
+                'subtitle' => 'Fresh drops, GCash-ready checkout, and same-week delivery.',
+                'image' => 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80',
+                'cta_label' => 'Shop deals',
+                'cta_url' => '/products',
+            ]
+        );
 
         foreach (range(1, 10) as $i) {
             $order = Order::create([
