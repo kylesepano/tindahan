@@ -119,7 +119,7 @@ class DatabaseSeeder extends Seeder
             ->map(fn ($name) => Brand::updateOrCreate(['slug' => Str::slug($name)], ['name' => $name]));
 
         for ($i = 1; $i <= 60; $i++) {
-            $price = fake()->numberBetween(650, 18500);
+            $price = $this->numberBetween(650, 18500);
             $category = $categories->random();
             $name = $productNames[$category->name][($i - 1) % count($productNames[$category->name])];
             $product = Product::create([
@@ -129,17 +129,17 @@ class DatabaseSeeder extends Seeder
                 'slug' => Str::slug($name).'-'.$i,
                 'sku' => 'SKU-'.str_pad((string) $i, 5, '0', STR_PAD_LEFT),
                 'price' => $price,
-                'compare_at_price' => $price + fake()->numberBetween(250, 2000),
-                'discount' => fake()->numberBetween(0, 35),
-                'stock' => fake()->numberBetween(0, 120),
-                'rating' => fake()->randomFloat(2, 3.6, 5),
-                'reviews_count' => fake()->numberBetween(4, 180),
+                'compare_at_price' => $price + $this->numberBetween(250, 2000),
+                'discount' => $this->numberBetween(0, 35),
+                'stock' => $this->numberBetween(0, 120),
+                'rating' => $this->randomFloat(2, 3.6, 5),
+                'reviews_count' => $this->numberBetween(4, 180),
                 'is_featured' => $i <= 12,
                 'is_flash_sale' => $i % 7 === 0,
-                'description' => fake()->paragraphs(2, true),
+                'description' => $this->paragraphs(2),
                 'specifications' => [
-                    'Material' => fake()->randomElement(['Cotton blend', 'Aluminum', 'Vegan leather', 'Recycled polycarbonate']),
-                    'Warranty' => fake()->randomElement(['6 months', '1 year', '2 years']),
+                    'Material' => $this->randomElement(['Cotton blend', 'Aluminum', 'Vegan leather', 'Recycled polycarbonate']),
+                    'Warranty' => $this->randomElement(['6 months', '1 year', '2 years']),
                     'Origin' => 'Philippines',
                 ],
             ]);
@@ -154,13 +154,13 @@ class DatabaseSeeder extends Seeder
 
             $variantStock = 0;
             foreach (['Black', 'White', 'Limited'] as $index => $variant) {
-                $stock = fake()->numberBetween(0, 30);
+                $stock = $this->numberBetween(0, 30);
                 $variantStock += $stock;
                 $product->variants()->create([
                     'name' => 'Color',
                     'value' => $variant,
                     'image_url' => $productImages[$category->name][$index % count($productImages[$category->name])].'&variant='.$i.$index,
-                    'price_delta' => $variant === 'Limited' ? fake()->numberBetween(150, 600) : 0,
+                    'price_delta' => $variant === 'Limited' ? $this->numberBetween(150, 600) : 0,
                     'stock' => $stock,
                 ]);
             }
@@ -169,8 +169,8 @@ class DatabaseSeeder extends Seeder
             if ($i <= 20) {
                 $product->reviews()->create([
                     'user_id' => $customer->id,
-                    'rating' => fake()->numberBetween(4, 5),
-                    'comment' => fake()->sentence(14),
+                    'rating' => $this->numberBetween(4, 5),
+                    'comment' => $this->sentence(14),
                 ]);
             }
         }
@@ -202,8 +202,8 @@ class DatabaseSeeder extends Seeder
             $order = Order::create([
                 'user_id' => $customer->id,
                 'order_number' => 'ORD-DEMO-'.str_pad((string) $i, 3, '0', STR_PAD_LEFT),
-                'status' => fake()->randomElement(['pending', 'confirmed', 'preparing', 'shipped', 'delivered']),
-                'payment_status' => fake()->randomElement(['paid', 'unpaid']),
+                'status' => $this->randomElement(['pending', 'confirmed', 'preparing', 'shipped', 'delivered']),
+                'payment_status' => $this->randomElement(['paid', 'unpaid']),
                 'delivery_method' => 'standard',
                 'shipping_address' => ['line1' => '123 Demo Street', 'city' => 'Manila', 'province' => 'Metro Manila', 'postal_code' => '1000'],
                 'subtotal' => 1800,
@@ -226,5 +226,39 @@ class DatabaseSeeder extends Seeder
             'action' => 'seeded',
             'description' => 'Initial commerce platform dataset created.',
         ]);
+    }
+
+    private function numberBetween(int $min, int $max): int
+    {
+        return random_int($min, $max);
+    }
+
+    private function randomFloat(int $decimals, float $min, float $max): float
+    {
+        return round($min + (random_int(0, 10000) / 10000) * ($max - $min), $decimals);
+    }
+
+    private function randomElement(array $items): mixed
+    {
+        return $items[array_rand($items)];
+    }
+
+    private function sentence(int $words = 12): string
+    {
+        $pool = ['premium', 'daily', 'quality', 'modern', 'comfortable', 'durable', 'curated', 'local', 'fresh', 'reliable', 'stylish', 'practical', 'essential', 'smooth', 'lightweight'];
+        $selected = [];
+
+        for ($i = 0; $i < $words; $i++) {
+            $selected[] = $this->randomElement($pool);
+        }
+
+        return ucfirst(implode(' ', $selected)).'.';
+    }
+
+    private function paragraphs(int $count = 2): string
+    {
+        return collect(range(1, $count))
+            ->map(fn () => $this->sentence(18).' '.$this->sentence(14))
+            ->implode("\n\n");
     }
 }
