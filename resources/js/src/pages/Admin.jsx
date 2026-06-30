@@ -12,7 +12,7 @@ export default function Admin() {
     useEffect(() => {
         if (!getToken()) { navigate("/login"); return; }
         api.get("/auth/me").then(({ data: user }) => {
-            if (user.role !== "admin") navigate("/account");
+            if (user.role !== "admin") navigate("/");
             return api.get("/admin/dashboard");
         }).then(({ data }) => setData(data)).catch(() => navigate("/login"));
     }, [navigate]);

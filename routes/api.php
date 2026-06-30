@@ -23,12 +23,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('auth/profile', [AuthController::class, 'updateProfile']);
     Route::post('auth/address', [AuthController::class, 'saveAddress']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
-    Route::apiResource('cart', CartController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::apiResource('wishlist', WishlistController::class)->only(['index', 'store', 'destroy']);
-    Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
-    Route::post('orders/{order}/cancel', [OrderController::class, 'cancel']);
-    Route::post('payments/gcash', [PaymentController::class, 'gcash']);
-    Route::get('payments', [PaymentController::class, 'index']);
+
+    Route::middleware('customer')->group(function () {
+        Route::apiResource('cart', CartController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('wishlist', WishlistController::class)->only(['index', 'store', 'destroy']);
+        Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
+        Route::post('orders/{order}/cancel', [OrderController::class, 'cancel']);
+        Route::post('payments/gcash', [PaymentController::class, 'gcash']);
+        Route::get('payments', [PaymentController::class, 'index']);
+    });
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('dashboard', [AdminController::class, 'dashboard']);

@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { AdminOnly, CustomerOnly, GuestOnly } from "./components/RouteGuards";
 import Shell from "./layouts/Shell";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -20,14 +21,14 @@ export default function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/products" element={<Products />} />
                     <Route path="/products/:slug" element={<ProductDetails />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/account" element={<Account />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/admin/orders" element={<AdminOrders />} />
-                    <Route path="/admin/products" element={<AdminProducts />} />
-                    <Route path="/payment/:status" element={<PaymentResult />} />
+                    <Route path="/checkout" element={<CustomerOnly><Checkout /></CustomerOnly>} />
+                    <Route path="/account" element={<CustomerOnly><Account /></CustomerOnly>} />
+                    <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+                    <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
+                    <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
+                    <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
+                    <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
+                    <Route path="/payment/:status" element={<CustomerOnly><PaymentResult /></CustomerOnly>} />
                 </Route>
             </Routes>
         </BrowserRouter>
