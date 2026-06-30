@@ -20,6 +20,21 @@ export function variantLabel(variant) {
     return variant ? `${variant.name}: ${variant.value}` : "Default";
 }
 
+export function activeDiscountPercent(product, variant = null) {
+    return Number(variant?.active_discount_percent || product?.active_discount_percent || 0);
+}
+
+export function originalPrice(product, variant = null) {
+    return Number(product?.price || 0) + Number(variant?.price_delta || 0);
+}
+
+export function salePrice(product, variant = null) {
+    const price = originalPrice(product, variant);
+    const discount = activeDiscountPercent(product, variant);
+
+    return discount > 0 ? Math.round(price * (1 - discount / 100) * 100) / 100 : price;
+}
+
 export function getToken() {
     return localStorage.getItem("commerce_token");
 }

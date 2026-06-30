@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import Admin from "./pages/Admin";
 import AdminOrders from "./pages/AdminOrders";
 import AdminProducts from "./pages/AdminProducts";
+import AdminContent from "./pages/AdminContent";
 import PaymentResult from "./pages/PaymentResult";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
                     <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
                     <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
                     <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
+                    <Route path="/admin/content" element={<AdminOnly><AdminContent /></AdminOnly>} />
                     <Route path="/payment/:status" element={<CustomerOnly><PaymentResult /></CustomerOnly>} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

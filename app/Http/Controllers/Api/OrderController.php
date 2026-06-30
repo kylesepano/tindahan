@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\CouponController;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -23,6 +24,8 @@ class OrderController extends Controller
         $data = $request->validate([
             'shipping_address' => ['required', 'array'],
             'delivery_method' => ['required', 'string'],
+            'coupon_code' => ['nullable', 'string', 'max:80'],
+            'payment_method' => ['nullable', 'in:online,cash_on_delivery'],
         ]);
 
         $order = DB::transaction(function () use ($request, $data) {
@@ -54,26 +57,35 @@ class OrderController extends Controller
                 $product = $products->get($item->product_id);
                 $variant = $item->product_variant_id ? $variants->get($item->product_variant_id) : null;
 
-                return ($product->price + ($variant?->price_delta ?? 0)) * $item->quantity;
+                return $product->salePrice($variant) * $item->quantity;
             });
             $shipping = $data['delivery_method'] === 'express' ? 180 : 95;
-            $tax = round($subtotal * 0.12, 2);
+            $discount = 0;
+            $coupon = null;
+            if (! empty($data['coupon_code'])) {
+                $coupon = CouponController::validCoupon($data['coupon_code'], $subtotal);
+                $discount = CouponController::discountFor($coupon, $subtotal);
+            }
+            $taxable = max(0, $subtotal - $discount);
+            $tax = round($taxable * 0.12, 2);
 
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'order_number' => 'ORD-'.now()->format('Ymd').'-'.Str::upper(Str::random(6)),
+                'payment_status' => ($data['payment_method'] ?? 'online') === 'cash_on_delivery' ? 'cod_pending' : 'unpaid',
                 'delivery_method' => $data['delivery_method'],
                 'shipping_address' => $data['shipping_address'],
                 'subtotal' => $subtotal,
+                'discount_total' => $discount,
                 'shipping_fee' => $shipping,
                 'tax_total' => $tax,
-                'total' => $subtotal + $shipping + $tax,
+                'total' => $taxable + $shipping + $tax,
             ]);
 
             foreach ($items as $item) {
                 $product = $products->get($item->product_id);
                 $variant = $item->product_variant_id ? $variants->get($item->product_variant_id) : null;
-                $unitPrice = $product->price + ($variant?->price_delta ?? 0);
+                $unitPrice = $product->salePrice($variant);
                 $order->items()->create([
                     'product_id' => $item->product_id,
                     'product_variant_id' => $variant?->id,
@@ -93,12 +105,25 @@ class OrderController extends Controller
                 }
             }
 
+            if (($data['payment_method'] ?? 'online') === 'cash_on_delivery') {
+                $order->payment()->create([
+                    'user_id' => $request->user()->id,
+                    'gateway' => 'cash',
+                    'method' => 'cash_on_delivery',
+                    'payment_reference' => 'COD-'.$order->order_number,
+                    'amount' => $order->total,
+                    'status' => 'pending',
+                    'payload' => ['message' => 'Collect payment upon delivery.'],
+                ]);
+            }
+
             $request->user()->cartItems()->delete();
+            $coupon?->increment('used_count');
 
             return $order;
         });
 
-        return response()->json($order->load('items'), 201);
+        return response()->json($order->load('items', 'payment'), 201);
     }
 
     public function show(Request $request, Order $order): JsonResponse

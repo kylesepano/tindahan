@@ -35,7 +35,8 @@ export default function Login() {
                 {error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}
                 <button className="mt-5 w-full rounded-lg bg-emerald-600 px-4 py-3 font-black text-white">Login</button>
                 <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">New customer? <Link className="font-bold text-emerald-700 dark:text-emerald-300" to="/register">Create an account</Link></p>
-                <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Admin: admin@example.com / password</p>
+                <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Demo customer: customer@example.com / password</p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Demo admin: admin@example.com / password</p>
             </form>
         </section>
     );

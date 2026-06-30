@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ShoppingCart, Star } from "lucide-react";
-import { peso, productImage } from "../lib/helpers";
+import { activeDiscountPercent, originalPrice, peso, productImage, salePrice } from "../lib/helpers";
 import { useAuthStore } from "../store/authStore";
 
 export default function ProductCard({ product, onAdd }) {
@@ -8,6 +8,9 @@ export default function ProductCard({ product, onAdd }) {
     const { user } = useAuthStore();
     const isAdmin = user?.role === "admin";
     const hasVariants = product.variants?.length > 0;
+    const discount = activeDiscountPercent(product);
+    const currentPrice = salePrice(product);
+    const basePrice = originalPrice(product);
 
     return (
         <article className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
@@ -32,9 +35,10 @@ export default function ProductCard({ product, onAdd }) {
                 <Link to={`/products/${product.slug}`} className="line-clamp-2 min-h-12 font-black">
                     {product.name}
                 </Link>
-                <p className="mt-2 text-lg font-black text-emerald-700 dark:text-emerald-300">
-                    {peso.format(product.price)}
-                </p>
+                <div className="mt-2">
+                    <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">{peso.format(currentPrice)}</p>
+                    {discount > 0 && <p className="text-xs font-bold text-zinc-500 line-through">{peso.format(basePrice)}</p>}
+                </div>
                 <p className={`mt-1 text-xs font-bold ${outOfStock ? "text-red-600 dark:text-red-300" : Number(product.stock) <= 5 ? "text-amber-600 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400"}`}>
                     {outOfStock ? "Out of stock" : `${product.stock} in stock`}
                 </p>

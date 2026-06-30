@@ -44,7 +44,9 @@ services:
       - key: QUEUE_CONNECTION
         value: database
       - key: SEED_DATABASE
-        value: false
+        value: true
+      - key: ALLOW_DEMO_DATA
+        value: true
       - key: PAYMONGO_PUBLIC_KEY
         sync: false
       - key: PAYMONGO_SECRET_KEY
@@ -54,7 +56,7 @@ services:
       - key: PAYMONGO_MERCHANT_NAME
         value: Tindahan
       - key: PAYMONGO_FORCE_CHECKOUT_AMOUNT
-        value: true
+        value: false
       - key: PAYMONGO_CHECKOUT_AMOUNT
         value: 1.00
 

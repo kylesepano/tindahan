@@ -28,7 +28,7 @@ export default function Register() {
 
     return (
         <section className="mx-auto grid max-w-5xl gap-8 px-4 py-12 md:grid-cols-2">
-            <div><p className="font-bold text-emerald-700 dark:text-emerald-300">Customer registration</p><h1 className="mt-2 text-4xl font-black">Create your Tindahan account</h1><p className="mt-4 text-zinc-600 dark:text-zinc-300">Use your account to save contact details, place GCash orders, and track transaction history.</p></div>
+            <div><p className="font-bold text-emerald-700 dark:text-emerald-300">Customer registration</p><h1 className="mt-2 text-4xl font-black">Create your Tindahan account</h1><p className="mt-4 text-zinc-600 dark:text-zinc-300">Use your account to save contact details, place online or cash on delivery orders, and track transaction history.</p></div>
             <form onSubmit={submit} className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <label className="grid gap-1 text-sm font-bold">Full name<input className={field} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
                 <label className="mt-4 grid gap-1 text-sm font-bold">Email<input className={field} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>

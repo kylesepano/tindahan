@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { CreditCard, Trash2 } from "lucide-react";
+import { CreditCard, Tag, Trash2 } from "lucide-react";
 import { api } from "../services/api";
 import { useCartStore } from "../store/cartStore";
 import { field, getToken, peso, productImage, variantLabel } from "../lib/helpers";
@@ -14,12 +14,20 @@ export default function Checkout() {
     const [profile, setProfile] = useState(null);
     const [address, setAddress] = useState(emptyAddress);
     const [payment, setPayment] = useState(null);
+    const [codOrder, setCodOrder] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState("online");
     const [busy, setBusy] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
     const [addressSaved, setAddressSaved] = useState(false);
+    const [couponCode, setCouponCode] = useState("");
+    const [coupon, setCoupon] = useState(null);
+    const [applyingCoupon, setApplyingCoupon] = useState(false);
     const [error, setError] = useState("");
-    const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [items]);
-    const grandTotal = items.length ? total + 95 + total * 0.12 : 0;
+
+    const subtotal = useMemo(() => items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [items]);
+    const discount = Number(coupon?.discount_total || 0);
+    const tax = coupon ? Number(coupon.tax_total || 0) : Math.max(0, subtotal - discount) * 0.12;
+    const grandTotal = items.length ? Math.max(0, subtotal - discount) + 95 + tax : 0;
 
     useEffect(() => {
         if (!getToken()) return;
@@ -52,19 +60,51 @@ export default function Checkout() {
         }
     }
 
+    async function syncCart() {
+        const { data: serverItems } = await api.get("/cart");
+        await Promise.all((serverItems || []).map((item) => api.delete(`/cart/${item.id}`)));
+        for (const item of items) {
+            await api.post("/cart", {
+                product_id: item.id,
+                product_variant_id: item.selected_variant?.id || item.variant?.id || null,
+                quantity: item.quantity,
+            });
+        }
+    }
+
+    async function applyCoupon() {
+        if (!getToken()) { navigate("/login"); return; }
+        setApplyingCoupon(true); setError("");
+        try {
+            await syncCart();
+            const { data } = await api.post("/coupons/apply", { code: couponCode });
+            setCoupon(data);
+        } catch (err) {
+            setCoupon(null);
+            setError(err.response?.data?.message || "Unable to apply coupon.");
+        } finally {
+            setApplyingCoupon(false);
+        }
+    }
+
     async function pay() {
         if (!getToken()) { navigate("/login"); return; }
         setBusy(true); setError("");
         try {
             const saved = await saveAddress();
             if (!saved) return;
-            for (const item of items) await api.post("/cart", { product_id: item.id, product_variant_id: item.selected_variant?.id || item.variant?.id || null, quantity: item.quantity });
-            const { data: order } = await api.post("/orders", { shipping_address: address, delivery_method: "standard" });
-            const { data: gcash } = await api.post("/payments/gcash", { order_id: order.id });
-            setPayment(gcash);
+            await syncCart();
+            const { data: order } = await api.post("/orders", { shipping_address: address, delivery_method: "standard", coupon_code: coupon?.code || couponCode || null, payment_method: paymentMethod });
+            if (paymentMethod === "cash_on_delivery") {
+                setCodOrder(order);
+            } else {
+                const { data: onlinePayment } = await api.post("/payments/online", { order_id: order.id });
+                setPayment(onlinePayment);
+            }
             clear();
+            setCoupon(null);
         } catch (err) {
-            setError(err.response?.data?.message || "Unable to create GCash payment.");
+            setError(err.response?.data?.message || "Unable to create payment.");
         } finally {
             setBusy(false);
         }
@@ -77,9 +117,9 @@ export default function Checkout() {
             <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
                 <h1 className="text-2xl font-black">Shopping Cart</h1>
                 <div className="mt-5 grid gap-4">
-                    {items.length === 0 && !payment && <p className="text-zinc-500">Your cart is empty.</p>}
+                    {items.length === 0 && !payment && !codOrder && <p className="text-zinc-500">Your cart is empty.</p>}
                     {items.map((item) => {
-                        const key = item.cart_key || `${item.id}:${item.selected_variant?.id || "default"}`;
+                        const key = item.cart_key || `${item.id}:${item.selected_variant?.id || item.variant?.id || "default"}`;
                         const variant = item.selected_variant || item.variant || null;
                         const stock = variant ? Number(variant.stock || 0) : Number(item.stock || 0);
 
@@ -88,9 +128,9 @@ export default function Checkout() {
                                 <img className="h-18 w-18 rounded-lg object-cover" src={productImage(item, variant)} alt="" />
                                 <div className="grid gap-2">
                                     <p className="font-black">{item.name}</p>
-                                    <p className="text-sm text-zinc-500">{variantLabel(variant)} · {peso.format(item.price)}</p>
+                                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{variant ? variantLabel(variant) : "Default option"} · {peso.format(item.price)}</p>
                                     {item.variants?.length > 0 && (
-                                        <select className={`${field} max-w-xs text-sm`} value={variant?.id || ""} onChange={(event) => changeVariant(key, event.target.value)}>
+                                        <select className={`${field} max-w-xs text-sm`} value={variant?.id || ""} onChange={(event) => { changeVariant(key, event.target.value); setCoupon(null); }}>
                                             {item.variants.map((option) => (
                                                 <option key={option.id} value={option.id} disabled={Number(option.stock) <= 0}>
                                                     {variantLabel(option)} {Number(option.price_delta) > 0 ? `+ ${peso.format(option.price_delta)}` : ""} ({option.stock} left)
@@ -100,8 +140,8 @@ export default function Checkout() {
                                     )}
                                 </div>
                                 <div className="col-span-2 flex items-center justify-end gap-2 md:col-span-1">
-                                    <input className={`${field} h-10 w-20 text-center`} type="number" min="1" max={stock || undefined} value={item.quantity} onChange={(event) => update(key, Number(event.target.value))} />
-                                    <button className="grid h-10 w-10 place-items-center rounded-lg border border-zinc-300 text-red-600 dark:border-zinc-700 dark:text-red-300" type="button" onClick={() => update(key, 0)} aria-label={`Remove ${item.name}`}>
+                                    <input className={`${field} h-10 w-20 text-center`} type="number" min="1" max={stock || undefined} value={item.quantity} onChange={(event) => { update(key, Number(event.target.value)); setCoupon(null); }} />
+                                    <button className="grid h-10 w-10 place-items-center rounded-lg border border-zinc-300 text-red-600 dark:border-zinc-700 dark:text-red-300" type="button" onClick={() => { update(key, 0); setCoupon(null); }} aria-label={`Remove ${item.name}`}>
                                         <Trash2 size={17} />
                                     </button>
                                 </div>
@@ -120,11 +160,35 @@ export default function Checkout() {
                 </div>
             </div>
             <aside className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-                <h2 className="text-xl font-black">GCash Checkout</h2>
+                <h2 className="text-xl font-black">Payment</h2>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{profile ? `Signed in as ${profile.email}` : "Login is required before payment."}</p>
-                <div className="mt-5 grid gap-3 text-sm"><p className="flex justify-between"><span>Subtotal</span><strong>{peso.format(total)}</strong></p><p className="flex justify-between"><span>Shipping</span><strong>{peso.format(items.length ? 95 : 0)}</strong></p><p className="flex justify-between"><span>Tax</span><strong>{peso.format(total * 0.12)}</strong></p><p className="flex justify-between border-t border-zinc-200 pt-3 text-lg dark:border-zinc-700"><span>Total</span><strong>{peso.format(grandTotal)}</strong></p></div>
+                <div className="mt-5 grid gap-2">
+                    <span className="text-xs font-black uppercase text-zinc-500">Payment option</span>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <button className={`rounded-lg border px-3 py-2 text-left text-sm font-black ${paymentMethod === "online" ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200" : "border-zinc-300 dark:border-zinc-700"}`} type="button" onClick={() => setPaymentMethod("online")}>Online payment</button>
+                        <button className={`rounded-lg border px-3 py-2 text-left text-sm font-black ${paymentMethod === "cash_on_delivery" ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200" : "border-zinc-300 dark:border-zinc-700"}`} type="button" onClick={() => setPaymentMethod("cash_on_delivery")}>Cash on delivery</button>
+                    </div>
+                </div>
+                <div className="mt-5 grid gap-2">
+                    <label className="grid gap-1">
+                        <span className="text-xs font-black uppercase text-zinc-500">Coupon code</span>
+                        <div className="flex gap-2">
+                            <input className={field} placeholder="WELCOME10" value={couponCode} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setCoupon(null); }} />
+                            <button className="flex items-center gap-2 rounded-lg border border-zinc-300 px-3 text-sm font-black disabled:opacity-60 dark:border-zinc-700" type="button" disabled={applyingCoupon || !couponCode || !items.length} onClick={applyCoupon}><Tag size={16} /> Apply</button>
+                        </div>
+                    </label>
+                    {coupon && <p className="rounded-lg bg-emerald-50 p-2 text-sm font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">{coupon.code} applied.</p>}
+                </div>
+                <div className="mt-5 grid gap-3 text-sm">
+                    <p className="flex justify-between"><span>Subtotal</span><strong>{peso.format(subtotal)}</strong></p>
+                    {discount > 0 && <p className="flex justify-between text-emerald-700 dark:text-emerald-300"><span>Discount</span><strong>-{peso.format(discount)}</strong></p>}
+                    <p className="flex justify-between"><span>Shipping</span><strong>{peso.format(items.length ? 95 : 0)}</strong></p>
+                    <p className="flex justify-between"><span>Tax</span><strong>{peso.format(tax)}</strong></p>
+                    <p className="flex justify-between border-t border-zinc-200 pt-3 text-lg dark:border-zinc-700"><span>Total</span><strong>{peso.format(grandTotal)}</strong></p>
+                </div>
                 {error && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
-                {checkoutUrl ? <div className="mt-5 grid place-items-center gap-3 rounded-lg bg-white p-4 text-center text-zinc-950"><QRCodeSVG value={checkoutUrl} size={190} /><p className="text-sm font-bold">PayMongo checkout link QR</p><p className="max-w-xs text-xs text-zinc-600">Scan this with your phone camera to open PayMongo Checkout, then choose GCash. It is not a GCash app QR scanner code.</p><a className="rounded-lg bg-emerald-600 px-4 py-2 font-black text-white" href={checkoutUrl} target="_blank" rel="noreferrer">Open PayMongo Checkout</a></div> : <button disabled={busy || !items.length} onClick={pay} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-400"><CreditCard /> {busy ? "Creating payment..." : "Pay with GCash"}</button>}
+                {codOrder && <div className="mt-5 rounded-lg bg-emerald-50 p-4 text-sm font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">Cash on delivery order created: {codOrder.order_number}</div>}
+                {checkoutUrl ? <div className="mt-5 grid place-items-center gap-3 rounded-lg bg-white p-4 text-center text-zinc-950"><QRCodeSVG value={checkoutUrl} size={190} /><p className="text-sm font-bold">Online payment checkout QR</p><p className="max-w-xs text-xs text-zinc-600">Scan this with your phone camera to open PayMongo Checkout and complete the payment.</p><a className="rounded-lg bg-emerald-600 px-4 py-2 font-black text-white" href={checkoutUrl} target="_blank" rel="noreferrer">Open Online Checkout</a></div> : <button disabled={busy || !items.length} onClick={pay} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-400"><CreditCard /> {busy ? "Creating payment..." : paymentMethod === "cash_on_delivery" ? "Place COD order" : "Pay online"}</button>}
             </aside>
         </section>
     );

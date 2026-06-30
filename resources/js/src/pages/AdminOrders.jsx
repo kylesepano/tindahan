@@ -75,7 +75,7 @@ function OrderModal({ order, onClose, onStatus }) {
                     <div className="grid gap-3 md:grid-cols-4">
                         <Detail label="Customer" value={order.user?.name || "Guest"} />
                         <Detail label="Email" value={order.user?.email || "N/A"} />
-                        <Detail label="Payment" value={`${order.payment_status} ${order.payment?.method ? `via ${order.payment.method}` : ""}`} />
+                        <Detail label="Payment" value={`${order.payment_status} ${order.payment ? `via ${paymentLabel(order.payment)}` : ""}`} />
                         <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"><p className="text-xs font-bold uppercase text-zinc-500">Status</p><select className={`${field} mt-1 w-full`} value={order.status} onChange={(event) => onStatus(order, event.target.value)}>{statuses.filter(Boolean).map((item) => <option value={item} key={item}>{item}</option>)}</select></div>
                     </div>
                     <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"><h3 className="font-black">Shipping Address</h3><p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{[address.recipient_name, address.phone, address.line1, address.city, address.province, address.postal_code].filter(Boolean).join(", ") || "No address"}</p></section>
@@ -89,4 +89,10 @@ function OrderModal({ order, onClose, onStatus }) {
 
 function Detail({ label, value }) {
     return <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"><p className="text-xs font-bold uppercase text-zinc-500">{label}</p><p className="mt-1 break-words text-sm font-black">{value}</p></div>;
+}
+
+function paymentLabel(payment) {
+    if (payment.method === "cash_on_delivery") return "Cash on delivery";
+    if (payment.method === "online" || payment.method === "gcash") return "Online payment";
+    return payment.method || "Payment";
 }

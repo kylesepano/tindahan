@@ -98,13 +98,13 @@ class PayMongoService
     {
         return [
             'transaction_id' => 'demo_'.Str::lower(Str::random(18)),
-            'payment_reference' => 'GCASH-'.$order->order_number,
+            'payment_reference' => 'ONLINE-'.$order->order_number,
             'checkout_url' => config('services.paymongo.success_url').'?order='.$order->order_number,
             'amount' => $amount,
             'payload' => [
                 'mode' => 'demo',
                 'merchant_name' => config('services.paymongo.merchant_name'),
-                'message' => 'Add PAYMONGO_SECRET_KEY to enable live GCash checkout.',
+                'message' => 'Add PAYMONGO_SECRET_KEY to enable live online checkout.',
                 'forced_checkout_amount' => config('services.paymongo.force_checkout_amount'),
             ],
         ];

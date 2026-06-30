@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductPriceHistory;
+use App\Models\ProductVariant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,10 +16,13 @@ class AdminProductController extends Controller
     {
         $products = Product::query()
             ->with('category', 'brand', 'images', 'variants.images', 'priceHistories.user')
+            ->when($request->status === 'deleted', fn ($query) => $query->onlyTrashed())
+            ->when($request->status !== 'deleted' && $request->boolean('with_deleted'), fn ($query) => $query->withTrashed())
             ->when($request->search, fn ($query, $search) => $query->where(fn ($inner) => $inner
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('sku', 'like', "%{$search}%")))
-            ->when($request->status, fn ($query, $status) => $query->where('status', $status))
+            ->when($request->category, fn ($query, $category) => $query->where('category_id', $category))
+            ->when($request->status && $request->status !== 'deleted', fn ($query, $status) => $query->where('status', $status))
             ->when($request->featured === '1', fn ($query) => $query->where('is_featured', true))
             ->latest();
 
@@ -59,7 +63,7 @@ class AdminProductController extends Controller
 
         foreach ($variants as $variant) {
             $created = $product->variants()->create($this->variantPayload($variant, $imageUrls[0] ?? null));
-            $this->syncVariantImages($created, $this->normalizeImageUrls($variant['image_urls'] ?? [$variant['image_url'] ?? null]));
+            $this->syncVariantImages($created, $this->variantImageUrls($variant));
         }
 
         return response()->json($product->load('category', 'brand', 'images', 'variants.images', 'priceHistories.user'), 201);
@@ -78,7 +82,7 @@ class AdminProductController extends Controller
         unset($data['image_url']);
         unset($data['image_urls']);
         unset($data['variants']);
-        $this->ensureImages($imageUrls, $variants);
+        $this->ensureImages($imageUrls, $variants, $product);
         $data['stock'] = empty($variants) ? $data['stock'] : collect($variants)->sum(fn ($variant) => (int) ($variant['stock'] ?? 0));
 
         $oldPrice = (float) $product->price;
@@ -95,7 +99,7 @@ class AdminProductController extends Controller
         $this->syncProductImages($product, $imageUrls);
 
         foreach ($variants as $variant) {
-            $variantImages = $this->normalizeImageUrls($variant['image_urls'] ?? [$variant['image_url'] ?? null]);
+            $variantImages = $this->variantImageUrls($variant);
             $variantData = $this->variantPayload($variant, $imageUrls[0] ?? $product->images()->where('is_primary', true)->value('url'));
             if (isset($variant['id'])) {
                 $product->variants()->whereKey($variant['id'])->update($variantData);
@@ -117,8 +121,18 @@ class AdminProductController extends Controller
     public function destroy(Product $product): JsonResponse
     {
         $product->update(['status' => 'archived']);
+        $product->delete();
 
-        return response()->json(['message' => 'Product archived']);
+        return response()->json($product->load('category', 'brand', 'images', 'variants.images'));
+    }
+
+    public function restore(string $product): JsonResponse
+    {
+        $product = Product::withTrashed()->findOrFail($product);
+        $product->restore();
+        $product->update(['status' => 'active']);
+
+        return response()->json($product->fresh()->load('category', 'brand', 'images', 'variants.images', 'priceHistories.user'));
     }
 
     public function updateStock(Request $request, Product $product): JsonResponse
@@ -145,6 +159,32 @@ class AdminProductController extends Controller
         return response()->json($product->load('category', 'brand', 'images', 'variants'));
     }
 
+    public function updateFeatured(Request $request, Product $product): JsonResponse
+    {
+        $data = $request->validate([
+            'is_featured' => ['required', 'boolean'],
+        ]);
+
+        $product->update($data);
+
+        return response()->json($product->fresh()->load('category', 'brand', 'images', 'variants.images'));
+    }
+
+    public function destroyVariant(Product $product, ProductVariant $variant): JsonResponse
+    {
+        abort_if($variant->product_id !== $product->id, 404);
+
+        $fallbackStock = (int) $variant->stock;
+        $variant->delete();
+
+        $remainingStock = $product->variants()->sum('stock');
+        $product->update([
+            'stock' => $product->variants()->exists() ? $remainingStock : $fallbackStock,
+        ]);
+
+        return response()->json($product->fresh()->load('category', 'brand', 'images', 'variants.images', 'priceHistories.user'));
+    }
+
     private function validated(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([
@@ -155,6 +195,8 @@ class AdminProductController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'discount_starts_at' => ['nullable', 'date'],
+            'discount_ends_at' => ['nullable', 'date', 'after_or_equal:discount_starts_at'],
             'stock' => ['required', 'integer', 'min:0'],
             'status' => ['required', 'in:active,draft,archived'],
             'description' => ['required', 'string'],
@@ -171,6 +213,9 @@ class AdminProductController extends Controller
             'variants.*.image_urls' => ['nullable', 'array'],
             'variants.*.image_urls.*' => ['nullable', 'url'],
             'variants.*.price_delta' => ['nullable', 'numeric'],
+            'variants.*.discount' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'variants.*.discount_starts_at' => ['nullable', 'date'],
+            'variants.*.discount_ends_at' => ['nullable', 'date', 'after_or_equal:variants.*.discount_starts_at'],
             'variants.*.stock' => ['required_with:variants', 'integer', 'min:0'],
         ]);
     }
@@ -196,7 +241,7 @@ class AdminProductController extends Controller
             ->all();
     }
 
-    private function ensureImages(array $productImages, array $variants): void
+    private function ensureImages(array $productImages, array $variants, ?Product $product = null): void
     {
         if (empty($variants)) {
             abort_if(empty($productImages), 422, 'At least one product image is required.');
@@ -204,7 +249,17 @@ class AdminProductController extends Controller
         }
 
         foreach ($variants as $variant) {
-            $images = $this->normalizeImageUrls($variant['image_urls'] ?? [$variant['image_url'] ?? null]);
+            $images = $this->variantImageUrls($variant);
+            if (empty($images) && $product && isset($variant['id'])) {
+                $existing = $product->variants()
+                    ->whereKey($variant['id'])
+                    ->with('images')
+                    ->first();
+                $images = $this->normalizeImageUrls([
+                    ...($existing?->images->pluck('url')->all() ?? []),
+                    $existing?->image_url,
+                ]);
+            }
             abort_if(empty($images), 422, 'Each variant needs at least one image.');
         }
     }
@@ -244,12 +299,25 @@ class AdminProductController extends Controller
 
     private function variantPayload(array $variant, ?string $fallbackImage): array
     {
+        $variantImages = $this->variantImageUrls($variant);
+
         return [
             'name' => $variant['name'],
             'value' => $variant['value'],
-            'image_url' => $this->normalizeImageUrl($variant['image_url'] ?? null) ?: $this->normalizeImageUrls($variant['image_urls'] ?? [])[0] ?? $fallbackImage,
+            'image_url' => $variantImages[0] ?? $fallbackImage,
             'price_delta' => $variant['price_delta'] ?? 0,
+            'discount' => $variant['discount'] ?? 0,
+            'discount_starts_at' => $variant['discount_starts_at'] ?? null,
+            'discount_ends_at' => $variant['discount_ends_at'] ?? null,
             'stock' => $variant['stock'] ?? 0,
         ];
+    }
+
+    private function variantImageUrls(array $variant): array
+    {
+        return $this->normalizeImageUrls([
+            ...($variant['image_urls'] ?? []),
+            $variant['image_url'] ?? null,
+        ]);
     }
 }

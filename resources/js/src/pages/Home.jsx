@@ -8,23 +8,33 @@ import ProductCard from "../components/ProductCard";
 export default function Home() {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [banners, setBanners] = useState([]);
     const { add } = useCartStore();
 
     useEffect(() => {
         api.get("/products?featured=1&sort=popular").then(({ data }) => setProducts(data.data || []));
         api.get("/categories").then(({ data }) => setCategories(data));
+        api.get("/banners").then(({ data }) => setBanners(data));
     }, []);
+
+    const hero = banners[0] || {
+        title: "Tindahan",
+        subtitle: "A practical online store for daily finds, saved delivery details, online payment, cash on delivery, and customer transaction history.",
+        image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85",
+        cta_label: "Shop now",
+        cta_url: "/products",
+    };
 
     return (
         <>
-            <section className="relative min-h-[620px] overflow-hidden bg-[url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85')] bg-cover bg-center">
+            <section className="relative min-h-[620px] overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url('${hero.image}')` }}>
                 <div className="absolute inset-0 bg-zinc-950/45" />
                 <div className="relative mx-auto flex min-h-[620px] max-w-7xl flex-col justify-center px-4 text-white">
                     <div className="max-w-2xl">
                         <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-bold backdrop-blur"><Sparkles size={16} /> Fresh daily deals</p>
-                        <h1 className="text-5xl font-black tracking-normal md:text-7xl">Tindahan</h1>
-                        <p className="mt-5 max-w-xl text-lg text-zinc-100">A practical online store for daily finds, saved delivery details, PayMongo GCash checkout, and customer transaction history.</p>
-                        <Link className="mt-7 inline-flex rounded-lg bg-emerald-500 px-5 py-3 font-black text-zinc-950" to="/products">Shop now</Link>
+                        <h1 className="text-5xl font-black tracking-normal md:text-7xl">{hero.title}</h1>
+                        <p className="mt-5 max-w-xl text-lg text-zinc-100">{hero.subtitle}</p>
+                        <Link className="mt-7 inline-flex rounded-lg bg-emerald-500 px-5 py-3 font-black text-zinc-950" to={hero.cta_url || "/products"}>{hero.cta_label || "Shop now"}</Link>
                     </div>
                 </div>
             </section>

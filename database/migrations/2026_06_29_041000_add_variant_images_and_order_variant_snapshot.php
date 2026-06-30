@@ -48,7 +48,7 @@ return new class extends Migration
                 ) totals
                 WHERE totals.product_id = p.id
             ');
-        } else {
+        } elseif (DB::getDriverName() === 'mysql') {
             DB::statement('
                 UPDATE product_variants pv
                 LEFT JOIN product_images pi ON pi.product_id = pv.product_id AND pi.is_primary = 1
@@ -65,6 +65,32 @@ return new class extends Migration
                 ) totals ON totals.product_id = p.id
                 SET p.stock = totals.variant_stock
             ');
+        } else {
+            DB::table('product_variants')
+                ->whereNull('image_url')
+                ->orderBy('id')
+                ->each(function ($variant): void {
+                    $imageUrl = DB::table('product_images')
+                        ->where('product_id', $variant->product_id)
+                        ->where('is_primary', true)
+                        ->value('url');
+
+                    if ($imageUrl) {
+                        DB::table('product_variants')
+                            ->where('id', $variant->id)
+                            ->update(['image_url' => $imageUrl]);
+                    }
+                });
+
+            DB::table('product_variants')
+                ->select('product_id', DB::raw('SUM(stock) AS variant_stock'))
+                ->groupBy('product_id')
+                ->orderBy('product_id')
+                ->each(function ($total): void {
+                    DB::table('products')
+                        ->where('id', $total->product_id)
+                        ->update(['stock' => $total->variant_stock]);
+                });
         }
     }
 

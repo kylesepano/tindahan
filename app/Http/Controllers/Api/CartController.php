@@ -12,7 +12,7 @@ class CartController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        return response()->json($request->user()->cartItems()->with('product.images', 'variant')->get());
+        return response()->json($request->user()->cartItems()->with('product.images', 'product.variants.images', 'variant.images')->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -34,7 +34,7 @@ class CartController extends Controller
             ['quantity' => $data['quantity']]
         );
 
-        return response()->json($item->load('product.images', 'variant'), 201);
+        return response()->json($item->load('product.images', 'product.variants.images', 'variant.images'), 201);
     }
 
     public function update(Request $request, CartItem $cart): JsonResponse
@@ -52,7 +52,7 @@ class CartController extends Controller
             'product_variant_id' => $variantId,
         ]);
 
-        return response()->json($cart->load('product.images', 'variant'));
+        return response()->json($cart->load('product.images', 'product.variants.images', 'variant.images'));
     }
 
     public function destroy(Request $request, CartItem $cart): JsonResponse

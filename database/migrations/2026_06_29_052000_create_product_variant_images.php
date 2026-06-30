@@ -21,6 +21,24 @@ return new class extends Migration
         }
 
         if (DB::table('product_variant_images')->count() === 0) {
+            if (DB::getDriverName() === 'sqlite') {
+                DB::table('product_variants')
+                    ->whereNotNull('image_url')
+                    ->orderBy('id')
+                    ->each(function ($variant): void {
+                        DB::table('product_variant_images')->insert([
+                            'product_variant_id' => $variant->id,
+                            'url' => $variant->image_url,
+                            'is_primary' => true,
+                            'position' => 1,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    });
+
+                return;
+            }
+
             $primaryValue = DB::getDriverName() === 'pgsql' ? 'true' : '1';
 
             DB::statement("

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ class ProductController extends Controller
         $products = Product::query()
             ->with(['category', 'brand', 'images', 'variants.images'])
             ->active()
+            ->whereHas('category', fn ($category) => $category->where('is_active', true)->whereNull('deleted_at'))
             ->when($request->search, fn ($q, $search) => $q->where(fn ($inner) => $inner
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('sku', 'like', "%{$search}%")))
@@ -38,6 +40,7 @@ class ProductController extends Controller
     public function show(Product $product): JsonResponse
     {
         abort_if($product->status !== 'active', 404);
+        abort_if(! $product->category || ! $product->category->is_active || $product->category->trashed(), 404);
 
         return response()->json($product->load(['category', 'brand', 'images', 'variants.images', 'reviews.user', 'priceHistories.user']));
     }
@@ -45,5 +48,17 @@ class ProductController extends Controller
     public function categories(): JsonResponse
     {
         return response()->json(Category::withCount('products')->where('is_active', true)->get());
+    }
+
+    public function banners(): JsonResponse
+    {
+        $now = now();
+
+        return response()->json(Banner::query()
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
+            ->latest()
+            ->get());
     }
 }

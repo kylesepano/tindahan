@@ -1,6 +1,6 @@
 # Tindahan
 
-Laravel 12 + React ecommerce platform with MySQL, Sanctum auth, customer storefront, admin dashboard, and GCash checkout through PayMongo.
+Laravel 12 + React ecommerce platform with MySQL, Sanctum auth, customer storefront, admin dashboard, online payment through PayMongo, and cash on delivery.
 
 ## Local Setup
 
@@ -26,7 +26,9 @@ php artisan serve --host=127.0.0.1 --port=8000
 
 Open `http://127.0.0.1:8000`.
 
-## Demo Accounts
+## Local Demo Accounts
+
+These are created by the seeder so portfolio visitors can test both roles.
 
 Admin: `admin@example.com` / `password`
 
@@ -45,7 +47,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-## GCash Merchant / PayMongo
+## Online Payment / PayMongo
 
 Add your PayMongo merchant keys in `.env`:
 
@@ -60,4 +62,6 @@ PAYMONGO_FORCE_CHECKOUT_AMOUNT=true
 PAYMONGO_CHECKOUT_AMOUNT=1.00
 ```
 
-The endpoint `POST /api/payments/gcash` creates a GCash checkout session when `PAYMONGO_SECRET_KEY` is configured. Without a key, it returns a demo checkout payload for local development.
+The endpoint `POST /api/payments/online` creates an online checkout session when `PAYMONGO_SECRET_KEY` is configured. Without a key, it returns a demo checkout payload for local development. Cash on delivery is available directly during checkout and creates a pending COD payment record.
+
+For portfolio production, `render.yaml` keeps `SEED_DATABASE=true` so demo accounts and sample products are available after deploy. Keep `APP_ENV=production`, `APP_DEBUG=false`, and set `PAYMONGO_FORCE_CHECKOUT_AMOUNT=false` unless intentionally running fixed-amount payment testing.
