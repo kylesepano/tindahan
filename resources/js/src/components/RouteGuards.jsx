@@ -31,7 +31,7 @@ export function CustomerOnly({ children }) {
 
     if (!bootstrapped) return <LoadingGate />;
     if (!token) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-    if (user?.role === "admin") return <Navigate to="/admin" replace />;
+    if (user?.role === "admin") return <Navigate to="/" replace />;
 
     return children;
 }
@@ -44,7 +44,7 @@ export function GuestOnly({ children }) {
     }, [bootstrapped, loadUser]);
 
     if (!bootstrapped) return <LoadingGate />;
-    if (token && user?.role === "admin") return <Navigate to="/admin" replace />;
+    if (token && user?.role === "admin") return <Navigate to="/" replace />;
     if (token) return <Navigate to="/" replace />;
 
     return children;

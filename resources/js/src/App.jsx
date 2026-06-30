@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AdminOnly, CustomerOnly, GuestOnly } from "./components/RouteGuards";
 import Shell from "./layouts/Shell";
 import Home from "./pages/Home";
@@ -29,6 +29,7 @@ export default function App() {
                     <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
                     <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
                     <Route path="/payment/:status" element={<CustomerOnly><PaymentResult /></CustomerOnly>} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
             </Routes>
         </BrowserRouter>
